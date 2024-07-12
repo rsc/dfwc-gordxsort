@@ -1,22 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"log"
 )
 
-const THRESHOLD int = 1 << 5
-
-type line = []byte
-type lines = []line
-
-func binsertionsort(lns lines) lines {
+func binsertionsort2b(lns []string) []string {
 	n := len(lns)
 	if n == 1 {
 		return lns
 	}
 	for i := 0; i < n; i++ {
-		for j := i; j > 0 && bytes.Compare(lns[j-1], lns[j]) > 0; j-- {
+		for j := i; j > 0 && lns[j-1] > lns[j]; j-- {
 			lns[j], lns[j-1] = lns[j-1], lns[j]
 		}
 	}
@@ -24,31 +18,31 @@ func binsertionsort(lns lines) lines {
 }
 
 // bostic
-func rsort2a(lns lines, recix int) lines {
-	var piles = make([][]line, 256)
+func rsort2b(lns []string, recix int) []string {
+	var piles = make([][]string, 256)
 	var nc int
 	nl := len(lns)
 
 	if nl == 0 {
-		log.Fatal("rsort2a: 0 len lines: ", recix)
+		log.Fatal("rsort2b: 0 len []string: ", recix)
 	}
 	if nl < THRESHOLD {
-		return binsertionsort(lns)
+		return binsertionsort2b(lns)
 	}
 
-	// deal lines into piles
+	// deal []string into piles
 	for i, _ := range lns {
 		var c int
 
 		if len(lns[i]) == 0 {
-			log.Fatal("rsort2a 0 length string")
+			log.Fatal("rsort2b 0 length string")
 		}
 		if recix >= len(lns[i]) {
 			c = 0
 		} else {
 			c = int(lns[i][recix])
 		}
-		piles[c] = append(piles[c], line(lns[i]))
+		piles[c] = append(piles[c], string(lns[i]))
 		if len(piles[c]) == 1 {
 			nc++ // number of piles so far
 		}
@@ -56,7 +50,7 @@ func rsort2a(lns lines, recix int) lines {
 
 	// sort the piles
 	if nc == 1 {
-		return binsertionsort(lns)
+		return binsertionsort2b(lns)
 	}
 	for i, _ := range piles {
 		if len(piles[i]) == 0 {
@@ -65,9 +59,9 @@ func rsort2a(lns lines, recix int) lines {
 
 		// sort pile
 		if len(piles[i]) < THRESHOLD {
-			piles[i] = binsertionsort(piles[i])
+			piles[i] = binsertionsort2b(piles[i])
 		} else {
-			piles[i] = rsort2a(piles[i], recix+1)
+			piles[i] = rsort2b(piles[i], recix+1)
 		}
 		nc--
 		if nc == 0 {
@@ -76,7 +70,7 @@ func rsort2a(lns lines, recix int) lines {
 	}
 
 	// combine the sorted piles
-	var slns lines
+	var slns []string
 	for i, _ := range piles {
 		for j, _ := range piles[i] {
 			slns = append(slns, piles[i][j])

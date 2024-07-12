@@ -1,76 +1,85 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"log"
+	"runtime"
 	"slices"
+	"sort"
 	"testing"
-	"time"
 )
 
-func timer(name string) func() {
-	start := time.Now()
-	return func() {
-		fmt.Printf("%s took %v\n", name, time.Since(start))
+func BenchmarkStrings(b *testing.B) {
+	for _, n := range []int{1 << 4, 1 << 8, 1 << 12, 1 << 16, 1 << 20, 1 << 24} {
+		b.Run(fmt.Sprint("n=", n), func(b *testing.B) {
+			for _, s := range []int{8, 16, 32, 64, 128, 256, 512} {
+				var rand, lines []string
+				b.Run(fmt.Sprint("len=", s), func(b *testing.B) {
+					if rand == nil {
+						rand = randomstrings(n, s, true)
+						lines = make([]string, n)
+					}
+					b.Run("alg=radix", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							copy(lines, rand)
+							out := rsort2b(lines, 0)
+							runtime.KeepAlive(&out[0])
+						}
+					})
+					b.Run("alg=sort.Strings", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							copy(lines, rand)
+							sort.Strings(lines)
+						}
+					})
+					b.Run("alg=slices.Sort", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							copy(lines, rand)
+							slices.Sort(lines)
+						}
+					})
+				})
+			}
+		})
 	}
 }
 
-func timemyradixsort(lns lines) {
-	a := fmt.Sprintf("rsort2a     %d", len(lns))
-	defer timer(a)()
-	rsort2a(lns, 0)
-}
-
-func timeslicessort(lns []string) {
-	a := fmt.Sprintf("slices sort %d", len(lns))
-	defer timer(a)()
-	slices.Sort(lns)
-}
-
-func Test_rsort2a(t *testing.T) {
-
-	var l int = 32
-	var r bool = true
-	ls := []int{1, 2, 1 << 4, 1 << 8, 1 << 16, 1 << 20, 1 << 24}
-
-	for _, nl := range ls {
-
-		var lns lines
-		log.Print("testing sort of ", nl)
-		rsl := randomstrings(nl, l, r)
-		if len(rsl) != int(nl) {
-			log.Fatal("rsort2a test rsl: wanted len ", nl, " got ", len(rsl))
-		}
-		for _, s := range rsl {
-			bln := []byte(s)
-			lns = append(lns, bln)
-		}
-		if len(lns) != int(nl) {
-			log.Print(lns)
-			log.Fatal("rsort2a test lns: before sort wanted len ", nl, " got ", len(lns))
-		}
-		slns := rsort2a(lns, 0)
-		if len(slns) != int(nl) {
-			//log.Print(slns)
-			log.Fatal("rsort2a test slns: after sort wanted len ", nl, " got ", len(slns))
-		}
-		var ssl []string
-		for _, s := range slns {
-			ssl = append(ssl, string(s))
-		}
-
-		if len(ssl) != int(nl) {
-			//log.Print(ssl)
-			log.Fatal("rsort2a test ssl: wanted len ", nl, " got ", len(ssl))
-		}
-		//if !sort.StringsAreSorted(ssl) {
-		if !slices.IsSorted(ssl) {
-			log.Fatal("rsort2a failed for size ", nl)
-		} else {
-			log.Print("sort test passed for ", nl)
-		}
-
-		timemyradixsort(lns)
-		timeslicessort(rsl)
+func BenchmarkBytes(b *testing.B) {
+	for _, n := range []int{1 << 4, 1 << 8, 1 << 12, 1 << 16, 1 << 20, 1 << 24} {
+		b.Run(fmt.Sprint("n=", n), func(b *testing.B) {
+			for _, s := range []int{8, 16, 32, 64, 128, 256, 512} {
+				var rand, lines [][]byte
+				var randstr []string
+				b.Run(fmt.Sprint("len=", s), func(b *testing.B) {
+					if rand == nil {
+						randstr = randomstrings(n, s, true)
+						rand = make([][]byte, n)
+						for i, s := range randstr {
+							rand[i] = []byte(s)
+						}
+						lines = make([][]byte, n)
+						b.ResetTimer()
+					}
+					b.Run("alg=radix", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							copy(lines, rand)
+							out := rsort2a(rand, 0)
+							runtime.KeepAlive(&out[0])
+						}
+					})
+					b.Run("alg=slices.Sort", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							copy(lines, rand)
+							slices.SortFunc(lines, bytes.Compare)
+						}
+					})
+				})
+			}
+		})
 	}
 }
